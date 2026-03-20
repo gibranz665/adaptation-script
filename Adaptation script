@@ -1,0 +1,143 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local ContentProvider = game:GetService("ContentProvider")
+local Player = Players.LocalPlayer
+
+local route = {}
+local isRecalling = false
+local recallSpeed = 4 
+
+-- [[ ASSET CONFIG ]] --
+local RAW_ID = "106059071384886" 
+local WHEEL_ID = "https://www.roblox.com/asset-thumbnail/image?assetId=" .. RAW_ID .. "&width=420&height=420&format=png"
+local SOUND_ID = "rbxassetid://130081290814025"
+
+-- [[ UI CONSTRUCTION ]] --
+local screenGui = Instance.new("ScreenGui", gethui())
+screenGui.Name = "KSFI_MAHORAGA_V12"
+screenGui.IgnoreGuiInset = true
+screenGui.DisplayOrder = 999
+
+local Frame = Instance.new("Frame", screenGui)
+Frame.Size = UDim2.new(0, 240, 0, 80)
+Frame.Position = UDim2.new(0, 20, 1, -130)
+Frame.BorderSizePixel = 0 
+Frame.Active = true
+Frame.Draggable = true 
+Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 8)
+
+-- [[ RGB LOGIC ]] --
+RunService.RenderStepped:Connect(function()
+    local t = tick() * 3 
+    local hue = (math.sin(t) + 1) / 2 * 0.4 + 0.6 
+    if hue > 1 then hue = hue - 1 end
+    Frame.BackgroundColor3 = Color3.fromHSV(hue, 0.8, 0.4) 
+end)
+
+-- [[ WHEEL SETUP ]] --
+local Wheel = Instance.new("ImageLabel")
+Wheel.Name = "MahoragaWheel"
+Wheel.Parent = screenGui 
+Wheel.Size = UDim2.new(0, 280, 0, 280) 
+Wheel.Position = UDim2.new(0.5, -140, 0.5, -140) 
+Wheel.BackgroundTransparency = 1 
+Wheel.Image = WHEEL_ID
+Wheel.ImageColor3 = Color3.new(1, 1, 1)
+Wheel.ScaleType = Enum.ScaleType.Fit
+Wheel.ZIndex = 1000
+Wheel.Visible = false
+
+task.spawn(function()
+    ContentProvider:PreloadAsync({Wheel})
+end)
+
+-- [[ BUTTONS ]] --
+local On = Instance.new("TextButton", Frame)
+On.Size = UDim2.new(0, 110, 0, 50)
+On.Position = UDim2.new(0, 7, 0.5, -25)
+On.BackgroundColor3 = Color3.fromRGB(0, 0, 0) 
+On.Text = "✧adaptation✧"
+On.TextColor3 = Color3.new(1,1,1)
+On.Font = Enum.Font.GothamBold
+On.TextSize = 13
+On.ZIndex = 500
+Instance.new("UICorner", On)
+
+local Off = Instance.new("TextButton", Frame)
+Off.Size = UDim2.new(0, 110, 0, 50)
+Off.Position = UDim2.new(1, -117, 0.5, -25)
+Off.BackgroundColor3 = Color3.fromRGB(0, 80, 200) 
+Off.Text = "Readaptation"
+Off.TextColor3 = Color3.new(1,1,1)
+Off.Font = Enum.Font.GothamBold
+Off.TextSize = 13
+Off.ZIndex = 500
+Instance.new("UICorner", Off)
+
+-- [[ RECALL LOGIC ]] --
+local function PlayAdaptEffect()
+    Wheel.Visible = true
+    
+    local s = Instance.new("Sound", game:GetService("SoundService"))
+    s.SoundId = SOUND_ID; s.Volume = 3; s:Play()
+    game:GetService("Debris"):AddItem(s, 2)
+    
+    task.spawn(function()
+        local startTime = tick()
+        -- Muncul hanya 1.5 detik (di antara 1-2 detik)
+        while Wheel.Visible and (tick() - startTime) < 1.5 do
+            -- Kecepatan dikurangi 7 (19 - 7 = 12)
+            Wheel.Rotation = Wheel.Rotation + 12 
+            task.wait()
+        end
+        Wheel.Visible = false 
+    end)
+end
+
+On.MouseButton1Click:Connect(function()
+    if isRecalling or #route == 0 then return end
+    isRecalling = true
+    PlayAdaptEffect()
+
+    On.Text = "X"
+    On.BackgroundColor3 = Color3.fromRGB(40, 40, 40) 
+
+    local char = Player.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    
+    if root and hum then
+        hum.PlatformStand = true 
+        while #route > 0 and isRecalling do
+            root.Velocity = Vector3.new(0, 0, 0)
+            root.RotVelocity = Vector3.new(0, 0, 0)
+            root.CFrame = route[#route]
+            for i = 1, recallSpeed do
+                if #route > 0 then table.remove(route, #route) end
+            end
+            RunService.Heartbeat:Wait()
+        end
+        isRecalling = false
+        hum.PlatformStand = false
+        On.Text = "✧adaptation✧"
+        On.BackgroundColor3 = Color3.fromRGB(0, 0, 0) 
+        Wheel.Visible = false
+    end
+end)
+
+Off.MouseButton1Click:Connect(function()
+    isRecalling = false
+    Wheel.Visible = false
+    On.Text = "✧adaptation✧"
+    On.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+end)
+
+-- Record Route
+RunService.Heartbeat:Connect(function()
+    local char = Player.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if root and not isRecalling then
+        table.insert(route, root.CFrame)
+        if #route > 600 then table.remove(route, 1) end
+    end
+end)
